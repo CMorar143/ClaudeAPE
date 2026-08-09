@@ -81,18 +81,15 @@ void Game::update(float deltaSeconds) {
 }
 
 void Game::renderBackground() {
-    const int spacing = 80;
+    const int spacing = 350;
+    const int branchWidth = 16;
     int firstLineIndex = static_cast<int>(SDL_floorf(m_cameraX / spacing));
     int lastWorldX = static_cast<int>(m_cameraX) + m_windowWidth + spacing;
 
     for (int worldX = firstLineIndex * spacing; worldX < lastWorldX; worldX += spacing) {
         int screenX = static_cast<int>(worldX - m_cameraX);
-        bool isOrigin = (worldX == 0);
-        if (isOrigin) {
-            m_renderer.drawLine(screenX, 0, screenX, m_windowHeight, 220, 90, 90);
-        } else {
-            m_renderer.drawLine(screenX, 0, screenX, m_windowHeight, 60, 60, 75);
-        }
+        SDL_Rect branchRect{screenX - branchWidth / 2, 0, branchWidth, m_windowHeight};
+        m_renderer.drawRect(branchRect, 90, 55, 25); // Dark brown tree trunk
     }
 }
 
