@@ -75,18 +75,14 @@ void Game::update(float deltaSeconds) {
         dy /= length;
     }
 
-    // Movement is only allowed while the player overlaps a branch: try the horizontal
-    // move first, then only allow vertical movement (or a stationary horizontal attempt)
-    // if the resulting position still touches a branch.
-    float candidateX = m_playerWorldX + dx * m_playerSpeed * deltaSeconds;
-    if (isTouchingBranch(candidateX)) {
-        m_playerWorldX = candidateX;
+    if (m_playerState == PlayerState::OnBranch) {
+        updateOnBranch(dx, dy, deltaSeconds);
+    } else {
+        updateAirborne(deltaSeconds);
     }
 
-    if (isTouchingBranch(m_playerWorldX)) {
-        m_playerWorldY += dy * m_playerSpeed * deltaSeconds;
-        if (m_playerWorldY < 0.0f) m_playerWorldY = 0.0f;
-        if (m_playerWorldY + m_playerHeight > m_windowHeight) m_playerWorldY = m_windowHeight - m_playerHeight;
+    if (!m_running) {
+        return;
     }
 
     // The camera only moves once the player nears the screen edge; inside that
@@ -96,6 +92,48 @@ void Game::update(float deltaSeconds) {
         m_cameraX = m_playerWorldX - m_cameraMarginX;
     } else if (playerScreenX + m_playerWidth > m_windowWidth - m_cameraMarginX) {
         m_cameraX = m_playerWorldX + m_playerWidth - (m_windowWidth - m_cameraMarginX);
+    }
+}
+
+void Game::updateOnBranch(float dx, float dy, float deltaSeconds) {
+    m_playerWorldX += dx * m_playerSpeed * deltaSeconds;
+    m_playerWorldY += dy * m_playerSpeed * deltaSeconds;
+
+    if (m_playerWorldY < 0.0f) m_playerWorldY = 0.0f;
+    if (m_playerWorldY + m_playerHeight > m_windowHeight) m_playerWorldY = m_windowHeight - m_playerHeight;
+
+    if (m_input.wasKeyPressed(SDL_SCANCODE_SPACE)) {
+        m_playerState = PlayerState::Airborne;
+        m_velocityX = dx * m_playerSpeed;
+        m_velocityY = -m_jumpSpeed;
+        return;
+    }
+
+    if (!isTouchingBranch(m_playerWorldX)) {
+        // Walked past the edge of the branch's touch zone: gravity takes over.
+        m_playerState = PlayerState::Airborne;
+        m_velocityX = dx * m_playerSpeed;
+        m_velocityY = 0.0f;
+    }
+}
+
+void Game::updateAirborne(float deltaSeconds) {
+    m_velocityY += m_gravity * deltaSeconds;
+    m_playerWorldX += m_velocityX * deltaSeconds;
+    m_playerWorldY += m_velocityY * deltaSeconds;
+
+    if (isTouchingBranch(m_playerWorldX)) {
+        m_playerState = PlayerState::OnBranch;
+        m_velocityX = 0.0f;
+        m_velocityY = 0.0f;
+        if (m_playerWorldY < 0.0f) m_playerWorldY = 0.0f;
+        if (m_playerWorldY + m_playerHeight > m_windowHeight) m_playerWorldY = m_windowHeight - m_playerHeight;
+        return;
+    }
+
+    if (m_playerWorldY > m_windowHeight) {
+        SDL_Log("Orangutan fell off screen. Game over.");
+        m_running = false;
     }
 }
 
