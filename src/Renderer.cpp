@@ -112,6 +112,7 @@ SDL_Texture* Renderer::loadTexture(const std::string& path) {
     return texture;
 }
 
-void Renderer::drawTexture(SDL_Texture* texture, const SDL_Rect* srcRect, const SDL_Rect& dstRect) {
+void Renderer::drawTexture(SDL_Texture* texture, const SDL_Rect* srcRect, const SDL_Rect& dstRect, Uint8 alpha) {
+    SDL_SetTextureAlphaMod(texture, alpha);
     SDL_RenderCopy(m_renderer, texture, srcRect, &dstRect);
 }

@@ -30,7 +30,7 @@ public:
     // Loads (and caches) a texture from disk. Returns nullptr on failure.
     SDL_Texture* loadTexture(const std::string& path);
 
-    void drawTexture(SDL_Texture* texture, const SDL_Rect* srcRect, const SDL_Rect& dstRect);
+    void drawTexture(SDL_Texture* texture, const SDL_Rect* srcRect, const SDL_Rect& dstRect, Uint8 alpha = 255);
 
     SDL_Renderer* raw() const { return m_renderer; }
 

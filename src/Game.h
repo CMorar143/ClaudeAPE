@@ -26,11 +26,16 @@ private:
     void updateAirborne(float deltaSeconds);
     void updateBranches(float deltaSeconds);
     void render();
+    void renderSky();
+    void renderForest();
+    void renderMountainLayer(SDL_Texture* texture, float parallax, float baselineFraction, Uint8 alpha);
+    void renderTreeLayer(SDL_Texture* variantA, SDL_Texture* variantB, float parallax, float slotSpacing, float baseHeight, int seed, float minAnchorFraction, float maxAnchorFraction);
     void renderBackground();
     bool isTouchingBranch(float playerLeftX, float playerCenterY) const;
     int nearestBranchIndex(float worldX) const;
     float branchLeanAt(int branchIndex) const;
     void visibleBranchIndexRange(int& firstIndex, int& lastIndex) const;
+    static float hashToUnitFloat(int seed);
 
     Renderer m_renderer;
     InputManager m_input;
@@ -70,4 +75,13 @@ private:
     static constexpr float m_branchSpringStiffness = 40.0f;
     static constexpr float m_branchDamping = 3.0f;
     std::unordered_map<int, BranchState> m_branches;
+
+    // Decorative forest background: a handful of tree/mountain textures, tiled
+    // and scattered across a few parallax layers. Placement within each layer
+    // is deterministic (hashed from slot index), so the same scenery reappears
+    // consistently as the camera revisits a stretch of world.
+    SDL_Texture* m_treeCanopyTexture = nullptr;
+    SDL_Texture* m_treePalmTexture = nullptr;
+    SDL_Texture* m_mountainFarTexture = nullptr;
+    SDL_Texture* m_mountainNearTexture = nullptr;
 };
