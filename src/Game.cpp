@@ -12,6 +12,18 @@ bool Game::init(const char* title, int width, int height) {
 
     m_windowWidth = width;
     m_windowHeight = height;
+
+    m_playerTexture = m_renderer.loadTexture("assets/orangutan.bmp");
+    if (m_playerTexture) {
+        int textureWidth = 0;
+        int textureHeight = 0;
+        SDL_QueryTexture(m_playerTexture, nullptr, nullptr, &textureWidth, &textureHeight);
+
+        const int targetHeight = 100;
+        m_playerHeight = targetHeight;
+        m_playerWidth = static_cast<int>(textureWidth * (targetHeight / static_cast<float>(textureHeight)));
+    }
+
     m_playerWorldX = 0.0f;
     m_playerWorldY = height / 2.0f - m_playerHeight / 2.0f;
     m_cameraX = m_playerWorldX + m_playerWidth / 2.0f - m_windowWidth / 2.0f;
@@ -63,12 +75,19 @@ void Game::update(float deltaSeconds) {
         dy /= length;
     }
 
-    // Horizontal movement is unbounded: the world scrolls beneath the player instead.
-    m_playerWorldX += dx * m_playerSpeed * deltaSeconds;
-    m_playerWorldY += dy * m_playerSpeed * deltaSeconds;
+    // Movement is only allowed while the player overlaps a branch: try the horizontal
+    // move first, then only allow vertical movement (or a stationary horizontal attempt)
+    // if the resulting position still touches a branch.
+    float candidateX = m_playerWorldX + dx * m_playerSpeed * deltaSeconds;
+    if (isTouchingBranch(candidateX)) {
+        m_playerWorldX = candidateX;
+    }
 
-    if (m_playerWorldY < 0.0f) m_playerWorldY = 0.0f;
-    if (m_playerWorldY + m_playerHeight > m_windowHeight) m_playerWorldY = m_windowHeight - m_playerHeight;
+    if (isTouchingBranch(m_playerWorldX)) {
+        m_playerWorldY += dy * m_playerSpeed * deltaSeconds;
+        if (m_playerWorldY < 0.0f) m_playerWorldY = 0.0f;
+        if (m_playerWorldY + m_playerHeight > m_windowHeight) m_playerWorldY = m_windowHeight - m_playerHeight;
+    }
 
     // The camera only moves once the player nears the screen edge; inside that
     // dead zone the player is free to move without the background scrolling.
@@ -81,8 +100,8 @@ void Game::update(float deltaSeconds) {
 }
 
 void Game::renderBackground() {
-    const int spacing = 350;
-    const int branchWidth = 16;
+    int spacing = static_cast<int>(m_branchSpacing);
+    int branchWidth = static_cast<int>(m_branchWidth);
     int firstLineIndex = static_cast<int>(SDL_floorf(m_cameraX / spacing));
     int lastWorldX = static_cast<int>(m_cameraX) + m_windowWidth + spacing;
 
@@ -91,6 +110,21 @@ void Game::renderBackground() {
         SDL_Rect branchRect{screenX - branchWidth / 2, 0, branchWidth, m_windowHeight};
         m_renderer.drawRect(branchRect, 90, 55, 25); // Dark brown tree trunk
     }
+}
+
+bool Game::isTouchingBranch(float playerLeftX) const {
+    float playerRightX = playerLeftX + m_playerWidth;
+    int centerIndex = static_cast<int>(SDL_roundf((playerLeftX + playerRightX) / 2.0f / m_branchSpacing));
+
+    for (int i = centerIndex - 1; i <= centerIndex + 1; ++i) {
+        float branchCenter = i * m_branchSpacing;
+        float branchLeft = branchCenter - m_branchWidth / 2.0f;
+        float branchRight = branchCenter + m_branchWidth / 2.0f;
+        if (playerRightX > branchLeft && playerLeftX < branchRight) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void Game::render() {
@@ -103,7 +137,11 @@ void Game::render() {
         m_playerWidth,
         m_playerHeight
     };
-    m_renderer.drawRect(playerScreenRect, 100, 200, 255);
+    if (m_playerTexture) {
+        m_renderer.drawTexture(m_playerTexture, nullptr, playerScreenRect);
+    } else {
+        m_renderer.drawRect(playerScreenRect, 100, 200, 255);
+    }
 
     m_renderer.present();
 }

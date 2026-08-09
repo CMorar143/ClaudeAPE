@@ -33,3 +33,9 @@ if (WIN32)
             $<TARGET_FILE_DIR:TreeSwinging>
     )
 endif()
+
+add_custom_command(TARGET TreeSwinging POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets
+        $<TARGET_FILE_DIR:TreeSwinging>/assets
+)
