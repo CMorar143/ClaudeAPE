@@ -21,6 +21,7 @@ public:
     void present();
 
     void drawRect(const SDL_Rect& rect, Uint8 r, Uint8 g, Uint8 b, Uint8 a = 255, bool filled = true);
+    void drawLine(int x1, int y1, int x2, int y2, Uint8 r, Uint8 g, Uint8 b, Uint8 a = 255);
 
     // Loads (and caches) a texture from disk. Returns nullptr on failure.
     SDL_Texture* loadTexture(const std::string& path);

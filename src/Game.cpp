@@ -12,8 +12,9 @@ bool Game::init(const char* title, int width, int height) {
 
     m_windowWidth = width;
     m_windowHeight = height;
-    m_player.x = width / 2 - m_player.w / 2;
-    m_player.y = height / 2 - m_player.h / 2;
+    m_playerWorldX = 0.0f;
+    m_playerWorldY = height / 2.0f - m_playerHeight / 2.0f;
+    m_cameraX = m_playerWorldX + m_playerWidth / 2.0f - m_windowWidth / 2.0f;
 
     m_running = true;
     return true;
@@ -62,18 +63,51 @@ void Game::update(float deltaSeconds) {
         dy /= length;
     }
 
-    m_player.x += static_cast<int>(dx * m_playerSpeed * deltaSeconds);
-    m_player.y += static_cast<int>(dy * m_playerSpeed * deltaSeconds);
+    // Horizontal movement is unbounded: the world scrolls beneath the player instead.
+    m_playerWorldX += dx * m_playerSpeed * deltaSeconds;
+    m_playerWorldY += dy * m_playerSpeed * deltaSeconds;
 
-    if (m_player.x < 0) m_player.x = 0;
-    if (m_player.y < 0) m_player.y = 0;
-    if (m_player.x + m_player.w > m_windowWidth) m_player.x = m_windowWidth - m_player.w;
-    if (m_player.y + m_player.h > m_windowHeight) m_player.y = m_windowHeight - m_player.h;
+    if (m_playerWorldY < 0.0f) m_playerWorldY = 0.0f;
+    if (m_playerWorldY + m_playerHeight > m_windowHeight) m_playerWorldY = m_windowHeight - m_playerHeight;
+
+    // The camera only moves once the player nears the screen edge; inside that
+    // dead zone the player is free to move without the background scrolling.
+    float playerScreenX = m_playerWorldX - m_cameraX;
+    if (playerScreenX < m_cameraMarginX) {
+        m_cameraX = m_playerWorldX - m_cameraMarginX;
+    } else if (playerScreenX + m_playerWidth > m_windowWidth - m_cameraMarginX) {
+        m_cameraX = m_playerWorldX + m_playerWidth - (m_windowWidth - m_cameraMarginX);
+    }
+}
+
+void Game::renderBackground() {
+    const int spacing = 80;
+    int firstLineIndex = static_cast<int>(SDL_floorf(m_cameraX / spacing));
+    int lastWorldX = static_cast<int>(m_cameraX) + m_windowWidth + spacing;
+
+    for (int worldX = firstLineIndex * spacing; worldX < lastWorldX; worldX += spacing) {
+        int screenX = static_cast<int>(worldX - m_cameraX);
+        bool isOrigin = (worldX == 0);
+        if (isOrigin) {
+            m_renderer.drawLine(screenX, 0, screenX, m_windowHeight, 220, 90, 90);
+        } else {
+            m_renderer.drawLine(screenX, 0, screenX, m_windowHeight, 60, 60, 75);
+        }
+    }
 }
 
 void Game::render() {
     m_renderer.clear(30, 30, 40);
-    m_renderer.drawRect(m_player, 100, 200, 255);
+    renderBackground();
+
+    SDL_Rect playerScreenRect{
+        static_cast<int>(m_playerWorldX - m_cameraX),
+        static_cast<int>(m_playerWorldY),
+        m_playerWidth,
+        m_playerHeight
+    };
+    m_renderer.drawRect(playerScreenRect, 100, 200, 255);
+
     m_renderer.present();
 }
 

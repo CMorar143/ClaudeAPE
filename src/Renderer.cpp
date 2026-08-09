@@ -60,6 +60,11 @@ void Renderer::drawRect(const SDL_Rect& rect, Uint8 r, Uint8 g, Uint8 b, Uint8 a
     }
 }
 
+void Renderer::drawLine(int x1, int y1, int x2, int y2, Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
+    SDL_SetRenderDrawColor(m_renderer, r, g, b, a);
+    SDL_RenderDrawLine(m_renderer, x1, y1, x2, y2);
+}
+
 SDL_Texture* Renderer::loadTexture(const std::string& path) {
     auto it = m_textureCache.find(path);
     if (it != m_textureCache.end()) {
