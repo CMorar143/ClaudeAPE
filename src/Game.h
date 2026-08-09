@@ -2,6 +2,7 @@
 
 #include "Renderer.h"
 #include "InputManager.h"
+#include <unordered_map>
 
 class Game {
 public:
@@ -12,13 +13,24 @@ public:
 private:
     enum class PlayerState { OnBranch, Airborne };
 
+    // A branch pivots at its base (the bottom of the screen) like a spring-loaded pole:
+    // leanOffset is how far its tip has shifted horizontally from resting (vertical).
+    struct BranchState {
+        float leanOffset = 0.0f;
+        float leanVelocity = 0.0f;
+    };
+
     void handleEvents();
     void update(float deltaSeconds);
     void updateOnBranch(float dx, float dy, float deltaSeconds);
     void updateAirborne(float deltaSeconds);
+    void updateBranches(float deltaSeconds);
     void render();
     void renderBackground();
-    bool isTouchingBranch(float playerLeftX) const;
+    bool isTouchingBranch(float playerLeftX, float playerCenterY) const;
+    int nearestBranchIndex(float worldX) const;
+    float branchLeanAt(int branchIndex) const;
+    void visibleBranchIndexRange(int& firstIndex, int& lastIndex) const;
 
     Renderer m_renderer;
     InputManager m_input;
@@ -48,7 +60,14 @@ private:
     int m_windowWidth = 0;
     int m_windowHeight = 0;
 
-    // Branches are vertical bars spanning the full window height, spaced evenly in world space.
+    // Branches are spaced evenly in world space and pivot at the bottom of the screen.
+    // Each one wobbles like a spring, leaning toward whichever side carries most of the
+    // orangutan's weight, more so the higher up it climbs -- which can fling the tip far
+    // enough sideways to bridge the gap to the next branch.
     static constexpr float m_branchSpacing = 300.0f;
     static constexpr float m_branchWidth = 16.0f;
+    static constexpr float m_maxBranchLean = 140.0f;    // max tip offset (pixels) at full weight, top of branch
+    static constexpr float m_branchSpringStiffness = 40.0f;
+    static constexpr float m_branchDamping = 3.0f;
+    std::unordered_map<int, BranchState> m_branches;
 };

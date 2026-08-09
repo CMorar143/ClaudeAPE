@@ -1,4 +1,5 @@
 #include "Game.h"
+#include <algorithm>
 
 bool Game::init(const char* title, int width, int height) {
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -85,6 +86,8 @@ void Game::update(float deltaSeconds) {
         return;
     }
 
+    updateBranches(deltaSeconds);
+
     // The camera only moves once the player nears the screen edge; inside that
     // dead zone the player is free to move without the background scrolling.
     float playerScreenX = m_playerWorldX - m_cameraX;
@@ -109,7 +112,7 @@ void Game::updateOnBranch(float dx, float dy, float deltaSeconds) {
         return;
     }
 
-    if (!isTouchingBranch(m_playerWorldX)) {
+    if (!isTouchingBranch(m_playerWorldX, m_playerWorldY + m_playerHeight / 2.0f)) {
         // Walked past the edge of the branch's touch zone: gravity takes over.
         m_playerState = PlayerState::Airborne;
         m_velocityX = dx * m_playerSpeed;
@@ -122,7 +125,7 @@ void Game::updateAirborne(float deltaSeconds) {
     m_playerWorldX += m_velocityX * deltaSeconds;
     m_playerWorldY += m_velocityY * deltaSeconds;
 
-    if (isTouchingBranch(m_playerWorldX)) {
+    if (isTouchingBranch(m_playerWorldX, m_playerWorldY + m_playerHeight / 2.0f)) {
         m_playerState = PlayerState::OnBranch;
         m_velocityX = 0.0f;
         m_velocityY = 0.0f;
@@ -138,24 +141,67 @@ void Game::updateAirborne(float deltaSeconds) {
 }
 
 void Game::renderBackground() {
-    int spacing = static_cast<int>(m_branchSpacing);
-    int branchWidth = static_cast<int>(m_branchWidth);
-    int firstLineIndex = static_cast<int>(SDL_floorf(m_cameraX / spacing));
-    int lastWorldX = static_cast<int>(m_cameraX) + m_windowWidth + spacing;
+    int firstIndex, lastIndex;
+    visibleBranchIndexRange(firstIndex, lastIndex);
 
-    for (int worldX = firstLineIndex * spacing; worldX < lastWorldX; worldX += spacing) {
-        int screenX = static_cast<int>(worldX - m_cameraX);
-        SDL_Rect branchRect{screenX - branchWidth / 2, 0, branchWidth, m_windowHeight};
-        m_renderer.drawRect(branchRect, 90, 55, 25); // Dark brown tree trunk
+    for (int i = firstIndex; i <= lastIndex; ++i) {
+        float worldX = i * m_branchSpacing;
+        float lean = branchLeanAt(i);
+
+        float baseScreenX = worldX - m_cameraX;
+        float tipScreenX = worldX + lean - m_cameraX;
+        m_renderer.drawThickLine(baseScreenX, static_cast<float>(m_windowHeight), tipScreenX, 0.0f, m_branchWidth, 90, 55, 25);
     }
 }
 
-bool Game::isTouchingBranch(float playerLeftX) const {
+int Game::nearestBranchIndex(float worldX) const {
+    return static_cast<int>(SDL_roundf(worldX / m_branchSpacing));
+}
+
+float Game::branchLeanAt(int branchIndex) const {
+    auto it = m_branches.find(branchIndex);
+    return it != m_branches.end() ? it->second.leanOffset : 0.0f;
+}
+
+void Game::visibleBranchIndexRange(int& firstIndex, int& lastIndex) const {
+    firstIndex = static_cast<int>(SDL_floorf(m_cameraX / m_branchSpacing)) - 1;
+    lastIndex = static_cast<int>(SDL_floorf((m_cameraX + m_windowWidth) / m_branchSpacing)) + 1;
+}
+
+void Game::updateBranches(float deltaSeconds) {
+    int firstIndex, lastIndex;
+    visibleBranchIndexRange(firstIndex, lastIndex);
+
+    bool hasGrippedBranch = (m_playerState == PlayerState::OnBranch);
+    int grippedIndex = hasGrippedBranch ? nearestBranchIndex(m_playerWorldX + m_playerWidth / 2.0f) : 0;
+
+    for (int i = firstIndex; i <= lastIndex; ++i) {
+        BranchState& state = m_branches[i];
+
+        float targetLean = 0.0f;
+        if (hasGrippedBranch && i == grippedIndex) {
+            float heightFraction = 1.0f - std::clamp(m_playerWorldY / m_windowHeight, 0.0f, 1.0f);
+            float playerCenterX = m_playerWorldX + m_playerWidth / 2.0f;
+            float branchNominalX = i * m_branchSpacing;
+            float normalizedOffset = std::clamp((playerCenterX - branchNominalX) / (m_playerWidth / 2.0f), -1.0f, 1.0f);
+            targetLean = m_maxBranchLean * heightFraction * normalizedOffset;
+        }
+
+        // Spring-damper: pulls leanOffset toward targetLean, opposed by velocity-proportional
+        // damping, so the branch overshoots and settles instead of snapping straight to it.
+        float springForce = m_branchSpringStiffness * (targetLean - state.leanOffset) - m_branchDamping * state.leanVelocity;
+        state.leanVelocity += springForce * deltaSeconds;
+        state.leanOffset += state.leanVelocity * deltaSeconds;
+    }
+}
+
+bool Game::isTouchingBranch(float playerLeftX, float playerCenterY) const {
     float playerRightX = playerLeftX + m_playerWidth;
-    int centerIndex = static_cast<int>(SDL_roundf((playerLeftX + playerRightX) / 2.0f / m_branchSpacing));
+    int centerIndex = nearestBranchIndex((playerLeftX + playerRightX) / 2.0f);
+    float heightFraction = 1.0f - std::clamp(playerCenterY / m_windowHeight, 0.0f, 1.0f);
 
     for (int i = centerIndex - 1; i <= centerIndex + 1; ++i) {
-        float branchCenter = i * m_branchSpacing;
+        float branchCenter = i * m_branchSpacing + branchLeanAt(i) * heightFraction;
         float branchLeft = branchCenter - m_branchWidth / 2.0f;
         float branchRight = branchCenter + m_branchWidth / 2.0f;
         if (playerRightX > branchLeft && playerLeftX < branchRight) {
