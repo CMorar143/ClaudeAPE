@@ -60,35 +60,6 @@ void Renderer::drawRect(const SDL_Rect& rect, Uint8 r, Uint8 g, Uint8 b, Uint8 a
     }
 }
 
-void Renderer::drawLine(int x1, int y1, int x2, int y2, Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
-    SDL_SetRenderDrawColor(m_renderer, r, g, b, a);
-    SDL_RenderDrawLine(m_renderer, x1, y1, x2, y2);
-}
-
-void Renderer::drawThickLine(float x1, float y1, float x2, float y2, float thickness, Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
-    float dx = x2 - x1;
-    float dy = y2 - y1;
-    float length = SDL_sqrtf(dx * dx + dy * dy);
-    if (length < 0.0001f) {
-        return;
-    }
-
-    float halfThickness = thickness / 2.0f;
-    float perpX = -dy / length * halfThickness;
-    float perpY = dx / length * halfThickness;
-
-    SDL_Color color{r, g, b, a};
-    SDL_Vertex vertices[4] = {
-        {{x1 + perpX, y1 + perpY}, color, {0, 0}},
-        {{x1 - perpX, y1 - perpY}, color, {0, 0}},
-        {{x2 - perpX, y2 - perpY}, color, {0, 0}},
-        {{x2 + perpX, y2 + perpY}, color, {0, 0}},
-    };
-    int indices[6] = {0, 1, 2, 0, 2, 3};
-
-    SDL_RenderGeometry(m_renderer, nullptr, vertices, 4, indices, 6);
-}
-
 SDL_Texture* Renderer::loadTexture(const std::string& path) {
     auto it = m_textureCache.find(path);
     if (it != m_textureCache.end()) {

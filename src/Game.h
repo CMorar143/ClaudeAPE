@@ -13,8 +13,8 @@ public:
 private:
     enum class PlayerState { OnBranch, Airborne };
 
-    // A branch pivots at its base (the bottom of the screen) like a spring-loaded pole:
-    // leanOffset is how far its tip has shifted horizontally from resting (vertical).
+    // Branches aren't anchored anywhere: the whole branch shifts left/right as a rigid
+    // body, spring-damped toward a target driven by which side the orangutan is on.
     struct BranchState {
         float leanOffset = 0.0f;
         float leanVelocity = 0.0f;
@@ -31,7 +31,7 @@ private:
     void renderMountainLayer(SDL_Texture* texture, float parallax, float baselineFraction, Uint8 alpha);
     void renderTreeLayer(SDL_Texture* variantA, SDL_Texture* variantB, float parallax, float slotSpacing, float baseHeight, int seed, float minAnchorFraction, float maxAnchorFraction);
     void renderBackground();
-    bool isTouchingBranch(float playerLeftX, float playerCenterY) const;
+    bool isTouchingBranch(float playerLeftX) const;
     int nearestBranchIndex(float worldX) const;
     float branchLeanAt(int branchIndex) const;
     void visibleBranchIndexRange(int& firstIndex, int& lastIndex) const;
@@ -65,15 +65,15 @@ private:
     int m_windowWidth = 0;
     int m_windowHeight = 0;
 
-    // Branches are spaced evenly in world space and pivot at the bottom of the screen.
-    // Each one wobbles like a spring, leaning toward whichever side carries most of the
-    // orangutan's weight, more so the higher up it climbs -- which can fling the tip far
-    // enough sideways to bridge the gap to the next branch.
+    // Branches are spaced evenly in world space. Each one is a free-floating vertical
+    // bar (not pinned at either end) that drifts gently left/right, damped heavily
+    // enough that it settles toward the orangutan's side without overshooting past it --
+    // a subtle nudge that follows the climber, not something that swings wildly on its own.
     static constexpr float m_branchSpacing = 300.0f;
     static constexpr float m_branchWidth = 16.0f;
-    static constexpr float m_maxBranchLean = 140.0f;    // max tip offset (pixels) at full weight, top of branch
-    static constexpr float m_branchSpringStiffness = 40.0f;
-    static constexpr float m_branchDamping = 3.0f;
+    static constexpr float m_maxBranchLean = 75.0f; // max shift (pixels) when the orangutan is fully to one side
+    static constexpr float m_branchSpringStiffness = 25.0f;
+    static constexpr float m_branchDamping = 10.0f; // near-critical: settles without overshoot
     std::unordered_map<int, BranchState> m_branches;
 
     // Decorative forest background: a handful of tree/mountain textures, tiled
